@@ -1,0 +1,13 @@
+{
+  "name": "jarvis-v1",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "desktop"
+  ],
+  "scripts": {
+    "dev:desktop": "npm --workspace desktop run dev",
+    "build:desktop": "npm --workspace desktop run build"
+  }
+}
+

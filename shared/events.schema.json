@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JarvisDesktopEvent",
+  "type": "object",
+  "required": ["type", "payload", "timestamp"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "assistant.state",
+        "transcript.segment",
+        "plan.updated",
+        "task.updated",
+        "activity.logged",
+        "memory.updated",
+        "monitoring.alert",
+        "confirmation.requested",
+        "confirmation.resolved",
+        "speech.output",
+        "system.status"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}
+
