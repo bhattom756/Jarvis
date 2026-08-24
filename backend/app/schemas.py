@@ -40,6 +40,7 @@ class TranscriptPayload(BaseModel):
     text: str
     is_final: bool = False
     source: str = "microphone"
+    conversation_id: str | None = None
 
 
 class PlanStep(BaseModel):
@@ -97,14 +98,42 @@ class ConfirmationPayload(BaseModel):
 
 
 class SpeechOutputPayload(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
     text: str
     voice: str = "jarvis"
     status: Literal["queued", "playing", "completed", "failed"] = "queued"
+    conversation_id: str | None = None
+    audio_url: str | None = None
+
+
+class SpeechPlaybackPayload(BaseModel):
+    id: str
+    status: Literal["playing", "completed", "cancelled", "failed"]
+
+
+class ConversationMessagePayload(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    conversation_id: str
+    role: Literal["assistant", "user", "system"]
+    content: str
+    source: str = "system"
+    status: str | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class ConversationSessionPayload(BaseModel):
+    id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    preview: str | None = None
+    message_count: int = 0
 
 
 class SystemStatusPayload(BaseModel):
     microphone: str = "unknown"
     memory_db: str = "unknown"
+    conversation_store: str = "unknown"
     vector_memory: str = "unknown"
     llm_provider: str = "unknown"
     tts_provider: str = "unknown"

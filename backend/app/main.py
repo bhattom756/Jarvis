@@ -4,12 +4,12 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.orchestrator import Orchestrator
-from app.schemas import ConfirmationDecision, EmailDraftRequest, UserUtterance
+from app.schemas import ConfirmationDecision, EmailDraftRequest, SpeechPlaybackPayload, UserUtterance
 
 
 def configure_logging() -> None:
@@ -115,10 +115,35 @@ async def timeline() -> dict:
     return {
         "activities": orchestrator.store.list_recent("actions"),
         "tasks": orchestrator.store.list_recent("tasks"),
-        "conversations": orchestrator.store.list_recent("conversations"),
+        "conversations": orchestrator.list_conversation_sessions(),
         "confirmations": orchestrator.store.list_recent("confirmations"),
         "system": orchestrator.store.list_recent("system_status_snapshots", limit=1),
     }
+
+
+@app.get("/conversations")
+async def conversations() -> dict:
+    return {
+        "active_session_id": orchestrator.active_conversation_id,
+        "sessions": orchestrator.list_conversation_sessions(),
+    }
+
+
+@app.get("/conversations/{conversation_id}")
+async def conversation_messages(conversation_id: str) -> dict:
+    return {
+        "conversation_id": conversation_id,
+        "messages": orchestrator.list_conversation_messages(conversation_id),
+    }
+
+
+@app.get("/speech/{speech_id}")
+async def speech_audio(speech_id: str) -> Response:
+    audio = orchestrator.get_speech_audio(speech_id)
+    if audio is None:
+        raise HTTPException(status_code=404, detail="Speech audio is no longer available")
+    content, content_type = audio
+    return Response(content=content, media_type=content_type)
 
 
 @app.websocket(settings.desktop_ws_path)
@@ -126,10 +151,14 @@ async def desktop_ws(websocket: WebSocket) -> None:
     await websocket.accept()
 
     async def subscriber(event) -> None:
-        await websocket.send_text(event.model_dump_json())
+        try:
+            await websocket.send_text(event.model_dump_json())
+        except Exception:
+            pass
 
     orchestrator.events.subscribe(subscriber)
     await orchestrator.publish_system_status()
+    await orchestrator.deliver_pending_greeting()
     try:
         while True:
             payload = json.loads(await websocket.receive_text())
@@ -139,6 +168,8 @@ async def desktop_ws(websocket: WebSocket) -> None:
             elif event_type == "confirmation.resolve":
                 decision = ConfirmationDecision(**payload["payload"])
                 await orchestrator.resolve_confirmation(payload["payload"]["id"], decision.approved)
+            elif event_type == "speech.playback":
+                await orchestrator.handle_speech_playback(SpeechPlaybackPayload(**payload["payload"]))
     except (json.JSONDecodeError, KeyError, ValueError) as exc:
         logging.getLogger(__name__).warning("Invalid desktop websocket message: %s", exc)
     except WebSocketDisconnect:

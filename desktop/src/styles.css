@@ -3,18 +3,305 @@
 @tailwind utilities;
 
 :root {
-  color: #e8f0f6;
-  background: #081018;
+  color: #e8f4ff;
+  background: transparent;
+  font-family: "Segoe UI Variable", "Bahnschrift", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+  background: transparent;
 }
 
 body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  font-family: "Segoe UI", sans-serif;
+  overflow: hidden;
 }
 
-#root {
-  min-height: 100vh;
+button,
+input {
+  font: inherit;
 }
 
+.jarvis-root {
+  height: 100vh;
+  max-height: 100vh;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 17% 10%, rgba(48, 145, 255, 0.18), transparent 30%),
+    radial-gradient(circle at 82% 85%, rgba(29, 94, 208, 0.16), transparent 32%),
+    linear-gradient(130deg, rgba(1, 8, 18, 0.42), rgba(2, 14, 31, 0.16));
+}
+
+.jarvis-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width, 240px) minmax(0, 1fr);
+  height: calc(100vh - 32px);
+  max-height: calc(100vh - 32px);
+  gap: 14px;
+  overflow: hidden;
+  transition: grid-template-columns 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jarvis-shell.sidebar-collapsed {
+  --sidebar-width: 64px;
+}
+
+.glass-panel {
+  border: 1px solid rgba(105, 205, 255, 0.17);
+  background: linear-gradient(145deg, rgba(9, 32, 54, 0.83), rgba(3, 13, 28, 0.69));
+  box-shadow: 0 22px 80px rgba(0, 4, 15, 0.38), inset 0 1px rgba(165, 235, 255, 0.06);
+  backdrop-filter: blur(24px) saturate(130%);
+}
+
+.sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.main-panel {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 28px;
+}
+
+.shell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 20px 28px;
+  border-bottom: 1px solid rgba(134, 220, 255, 0.11);
+}
+
+.shell-body {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.conversation-panel,
+.orb-panel {
+  min-height: 0;
+  border: 1px solid rgba(137, 225, 255, 0.1);
+  border-radius: 22px;
+  background: rgba(2, 14, 30, 0.5);
+}
+
+.conversation-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 18px 18px 24px 18px;
+  overflow: hidden;
+}
+
+.conversation-scroll {
+  display: flex;
+  flex: 1 1 0%;
+  min-height: 100px;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-bottom: 12px;
+  scroll-behavior: smooth;
+}
+
+.conversation-scroll::-webkit-scrollbar,
+.orb-panel::-webkit-scrollbar,
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conversation-scroll::-webkit-scrollbar-track,
+.orb-panel::-webkit-scrollbar-track,
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: rgba(6, 20, 31, 0.4);
+  border-radius: 999px;
+}
+
+.conversation-scroll::-webkit-scrollbar-thumb,
+.orb-panel::-webkit-scrollbar-thumb,
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(105, 205, 255, 0.25);
+  border-radius: 999px;
+}
+
+.conversation-scroll::-webkit-scrollbar-thumb:hover,
+.orb-panel::-webkit-scrollbar-thumb:hover,
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(105, 205, 255, 0.45);
+}
+
+.orb-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.orb-stage {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* 3-Dot Blinking Animation */
+.dot-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.dot-pulse span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #69c5ff;
+  animation: dotPulse 1.4s infinite ease-in-out both;
+}
+.dot-pulse span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+.dot-pulse span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+@keyframes dotPulse {
+  0%, 80%, 100% {
+    transform: scale(0.3);
+    opacity: 0.25;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.status-chip,
+.hud-state {
+  border: 1px solid rgba(135, 221, 255, 0.18);
+  border-radius: 999px;
+  padding: 7px 11px;
+  color: rgba(217, 246, 255, 0.8);
+  font-family: "Bahnschrift", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.status-chip-live {
+  border-color: rgba(108, 255, 205, 0.4);
+  background: rgba(88, 232, 181, 0.11);
+  color: #a7f4d1;
+}
+
+.status-chip-muted {
+  background: rgba(130, 160, 192, 0.09);
+  color: rgba(203, 221, 240, 0.58);
+}
+
+.status-chip-blue,
+.hud-state {
+  background: rgba(67, 163, 255, 0.13);
+  color: #a6dfff;
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag,
+button,
+input {
+  -webkit-app-region: no-drag;
+}
+
+.hud-root {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  padding: 8px;
+}
+
+.hud-panel {
+  width: 100%;
+  border: 1px solid rgba(93, 206, 255, 0.28);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(7, 35, 59, 0.92), rgba(2, 12, 28, 0.78));
+  padding: 16px;
+  box-shadow: 0 14px 45px rgba(0, 5, 19, 0.42), inset 0 1px rgba(180, 240, 255, 0.08);
+}
+
+.hud-label {
+  margin-bottom: 3px;
+  color: rgba(171, 225, 255, 0.49);
+  font-family: "Bahnschrift", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
+  .jarvis-root {
+    padding: 10px;
+  }
+
+  .jarvis-shell,
+  .shell-body {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-panel {
+    max-height: 270px;
+  }
+
+  .shell-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .orb-panel {
+    min-height: 420px;
+  }
+}

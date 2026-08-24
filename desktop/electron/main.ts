@@ -37,14 +37,18 @@ async function loadRenderer(win: BrowserWindow, hash = ""): Promise<void> {
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1340,
-    height: 900,
-    backgroundColor: "#081018",
+    width: 1420,
+    height: 920,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    backgroundColor: "#00000000",
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js")
     }
   });
+  win.setMenuBarVisibility(false);
 
   void loadRenderer(win).then(() => {
     if (!win.isDestroyed()) {
@@ -75,12 +79,14 @@ function createHudWindow(): BrowserWindow {
     movable: true,
     skipTaskbar: true,
     show: false,
-    transparent: false,
-    backgroundColor: "#102231",
+    transparent: true,
+    hasShadow: false,
+    backgroundColor: "#00000000",
     webPreferences: {
       preload: path.join(__dirname, "preload.js")
     }
   });
+  win.setMenuBarVisibility(false);
 
   void loadRenderer(win, "#hud").catch(() => {
     void win.loadFile(rendererIndex, { hash: "hud" }).catch(() => undefined);
@@ -110,6 +116,12 @@ function createTray(): void {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
+  app.on("web-contents-created", (_event, contents) => {
+    contents.session.setPermissionRequestHandler((_webContents, permission, callback) => {
+      callback(permission === "media");
+    });
+  });
   mainWindow = createMainWindow();
   hudWindow = createHudWindow();
   createTray();

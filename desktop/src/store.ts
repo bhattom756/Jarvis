@@ -1,122 +1,156 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { AssistantState, EventEnvelope, TimelineRecord } from "./types";
-
-type TabKey = "conversation" | "memory" | "tasks" | "activity" | "system";
+import type {
+  AssistantState,
+  ConversationMessage,
+  ConversationSession,
+  EventEnvelope,
+  SystemStatus,
+} from "./types";
 
 interface JarvisStore {
   connected: boolean;
   muted: boolean;
-  monitoringPaused: boolean;
-  activeTab: TabKey;
+  conversationMenuOpen: boolean;
+  activeConversationId: string | null;
   state: AssistantState;
   goal: string;
   task: string;
   confidence: number;
-  transcript: string[];
-  activities: TimelineRecord[];
-  tasks: TimelineRecord[];
-  memories: string[];
-  alerts: TimelineRecord[];
-  confirmations: TimelineRecord[];
-  system: Record<string, unknown>;
-  setActiveTab: (tab: TabKey) => void;
+  lastHeard: string;
+  system: SystemStatus;
+  conversationSessions: ConversationSession[];
+  conversationMessages: Record<string, ConversationMessage[]>;
   setConnected: (connected: boolean) => void;
-  setTimeline: (timeline: Record<string, TimelineRecord[]>) => void;
-  toggleMuted: () => void;
-  toggleMonitoring: () => void;
+  setMuted: (muted: boolean) => void;
+  toggleConversationMenu: () => void;
+  setActiveConversation: (conversationId: string) => void;
+  setConversationBootstrap: (activeConversationId: string | null, sessions: ConversationSession[]) => void;
+  setConversationMessages: (conversationId: string, messages: ConversationMessage[]) => void;
   applyEvent: (event: EventEnvelope) => void;
 }
 
-export const useJarvisStore = create<JarvisStore>()(persist((set) => ({
-  connected: false,
-  muted: false,
-  monitoringPaused: false,
-  activeTab: "conversation",
-  state: "IDLE",
-  goal: "Awaiting next instruction",
-  task: "Monitoring",
-  confidence: 0,
-  transcript: [],
-  activities: [],
-  tasks: [],
-  memories: [],
-  alerts: [],
-  confirmations: [],
-  system: {},
-  setActiveTab: (tab) => set({ activeTab: tab }),
-  setConnected: (connected) => set({ connected }),
-  setTimeline: (timeline) => set({
-    activities: timeline.activities ?? [],
-    tasks: timeline.tasks ?? [],
-    confirmations: timeline.confirmations ?? []
-  }),
-  toggleMuted: () => set((state) => ({ muted: !state.muted })),
-  toggleMonitoring: () => set((state) => ({ monitoringPaused: !state.monitoringPaused })),
-  applyEvent: (event) =>
-    set((state) => {
-      switch (event.type) {
-        case "assistant.state":
-          return {
-            ...state,
-            state: String(event.payload.state) as AssistantState,
-            goal: String(event.payload.goal ?? state.goal),
-            task: String(event.payload.task ?? state.task),
-            confidence: Number(event.payload.confidence ?? state.confidence)
-          };
-        case "transcript.segment":
-          return {
-            ...state,
-            transcript: [String(event.payload.text), ...state.transcript].slice(0, 25)
-          };
-        case "activity.logged":
-          return {
-            ...state,
-            activities: [event.payload as TimelineRecord, ...state.activities].slice(0, 30)
-          };
-        case "plan.updated":
-          return {
-            ...state,
-            tasks: [event.payload as TimelineRecord, ...state.tasks].slice(0, 20)
-          };
-        case "memory.updated":
-          return {
-            ...state,
-            memories: [String(event.payload.summary), ...((event.payload.items as string[]) ?? []), ...state.memories].slice(0, 20)
-          };
-        case "monitoring.alert":
-          return {
-            ...state,
-            alerts: [event.payload as TimelineRecord, ...state.alerts].slice(0, 20),
-            activities: [event.payload as TimelineRecord, ...state.activities].slice(0, 30)
-          };
-        case "confirmation.requested":
-        case "confirmation.resolved":
-          return {
-            ...state,
-            confirmations: [event.payload as TimelineRecord, ...state.confirmations].slice(0, 20)
-          };
-        case "system.status":
-          return {
-            ...state,
-            system: event.payload
-          };
-        default:
-          return state;
-      }
-    })
-}), {
-  name: "jarvis-dashboard-state",
-  partialize: (state) => ({
-    muted: state.muted,
-    monitoringPaused: state.monitoringPaused,
-    activeTab: state.activeTab,
-    transcript: state.transcript,
-    activities: state.activities,
-    tasks: state.tasks,
-    memories: state.memories,
-    alerts: state.alerts,
-    confirmations: state.confirmations,
-    system: state.system
-  })
-}));
+function upsertSession(
+  sessions: ConversationSession[],
+  sessionId: string,
+  preview: string,
+  createdAt: string,
+): ConversationSession[] {
+  const existing = sessions.find((session) => session.id === sessionId);
+  if (!existing) {
+    return [
+      {
+        id: sessionId,
+        title: preview.slice(0, 48) || "Conversation",
+        preview,
+        created_at: createdAt,
+        updated_at: createdAt,
+        message_count: 1,
+      },
+      ...sessions,
+    ];
+  }
+
+  return sessions
+    .map((session) =>
+      session.id === sessionId
+        ? {
+            ...session,
+            preview,
+            updated_at: createdAt,
+            message_count: session.message_count + 1,
+          }
+        : session,
+    )
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
+}
+
+export const useJarvisStore = create<JarvisStore>()(
+  persist(
+    (set) => ({
+      connected: false,
+      muted: false,
+      conversationMenuOpen: true,
+      activeConversationId: null,
+      state: "IDLE",
+      goal: "Connecting to backend",
+      task: "Waiting for live status",
+      confidence: 0,
+      lastHeard: "",
+      system: {},
+      conversationSessions: [],
+      conversationMessages: {},
+      setConnected: (connected) => set({ connected }),
+      setMuted: (muted) => set({ muted }),
+      toggleConversationMenu: () =>
+        set((state) => ({ conversationMenuOpen: !state.conversationMenuOpen })),
+      setActiveConversation: (conversationId) => set({ activeConversationId: conversationId }),
+      setConversationBootstrap: (activeConversationId, sessions) =>
+        set((state) => ({
+          activeConversationId: activeConversationId ?? state.activeConversationId ?? sessions[0]?.id ?? null,
+          conversationSessions: sessions,
+        })),
+      setConversationMessages: (conversationId, messages) =>
+        set((state) => ({
+          conversationMessages: {
+            ...state.conversationMessages,
+            [conversationId]: messages,
+          },
+        })),
+      applyEvent: (event) =>
+        set((state) => {
+          switch (event.type) {
+            case "assistant.state":
+              return {
+                ...state,
+                state: String(event.payload.state) as AssistantState,
+                goal: String(event.payload.goal ?? state.goal),
+                task: String(event.payload.task ?? state.task),
+                confidence: Number(event.payload.confidence ?? state.confidence),
+              };
+            case "transcript.segment":
+              return {
+                ...state,
+                lastHeard: String(event.payload.text ?? ""),
+              };
+            case "conversation.message": {
+              const message = event.payload as unknown as ConversationMessage;
+              const existing = state.conversationMessages[message.conversation_id] ?? [];
+              const updatedMessages = existing.some((entry) => entry.id === message.id)
+                ? existing
+                : [...existing, message];
+
+              return {
+                ...state,
+                activeConversationId: state.activeConversationId ?? message.conversation_id,
+                conversationMessages: {
+                  ...state.conversationMessages,
+                  [message.conversation_id]: updatedMessages,
+                },
+                conversationSessions: upsertSession(
+                  state.conversationSessions,
+                  message.conversation_id,
+                  message.content,
+                  message.created_at,
+                ),
+              };
+            }
+            case "system.status":
+              return {
+                ...state,
+                system: event.payload as SystemStatus,
+              };
+            default:
+              return state;
+          }
+        }),
+    }),
+    {
+      name: "jarvis-conversation-state",
+      partialize: (state) => ({
+        activeConversationId: state.activeConversationId,
+        conversationMenuOpen: state.conversationMenuOpen,
+      }),
+    },
+  ),
+);

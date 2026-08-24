@@ -25,6 +25,7 @@ from app.schemas import TranscriptPayload
 
 logger = logging.getLogger(__name__)
 TranscriptHandler = Callable[[str], None]
+SpeechActivityHandler = Callable[[], None]
 
 
 @dataclass
@@ -51,11 +52,17 @@ class SpeechEngine:
     worker thread so PortAudio is never blocked by model inference.
     """
 
-    def __init__(self, settings: Settings | None = None, on_utterance: TranscriptHandler | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        on_utterance: TranscriptHandler | None = None,
+        on_speech_started: SpeechActivityHandler | None = None,
+    ) -> None:
         self.settings = settings or default_settings
         self.buffer = RollingTranscriptBuffer()
         self.on_utterance = on_utterance
-        self._audio_queue: queue.Queue[np.ndarray | None] = queue.Queue(maxsize=120)
+        self.on_speech_started = on_speech_started
+        self._audio_queue: queue.Queue[np.ndarray | None] = queue.Queue(maxsize=300)
         self._stop_event = threading.Event()
         self._stream: object | None = None
         self._worker: threading.Thread | None = None
@@ -73,6 +80,9 @@ class SpeechEngine:
 
     def set_handler(self, handler: TranscriptHandler) -> None:
         self.on_utterance = handler
+
+    def set_speech_started_handler(self, handler: SpeechActivityHandler) -> None:
+        self.on_speech_started = handler
 
     def start(self) -> None:
         if not self.settings.enable_microphone or self._stream is not None:
@@ -137,15 +147,21 @@ class SpeechEngine:
 
     def _audio_callback(self, indata: np.ndarray, frames: int, time_info: object, status: object) -> None:
         if status:
-            logger.warning("Microphone status: %s", status)
+            logger.debug("Microphone status: %s", status)
         try:
             self._audio_queue.put_nowait(indata.copy().reshape(-1))
         except queue.Full:
-            logger.warning("Microphone buffer overflow; dropping audio block")
+            try:
+                self._audio_queue.get_nowait()
+                self._audio_queue.put_nowait(indata.copy().reshape(-1))
+            except Exception:
+                pass
 
     def _transcription_loop(self) -> None:
         active_chunks: list[np.ndarray] = []
         silence_started: float | None = None
+        speech_started_at: float | None = None
+        activity_reported = False
         min_samples = int(self.settings.microphone_sample_rate * self.settings.speech_min_utterance_ms / 1000)
         silence_seconds = self.settings.speech_silence_duration_ms / 1000
         while not self._stop_event.is_set():
@@ -159,6 +175,15 @@ class SpeechEngine:
             if rms >= self.settings.speech_vad_threshold:
                 active_chunks.append(chunk)
                 silence_started = None
+                if speech_started_at is None:
+                    speech_started_at = time.monotonic()
+                if (
+                    not activity_reported
+                    and self.on_speech_started is not None
+                    and (time.monotonic() - speech_started_at) * 1000 >= self.settings.speech_barge_in_min_duration_ms
+                ):
+                    activity_reported = True
+                    self.on_speech_started()
                 continue
             if active_chunks:
                 silence_started = silence_started or time.monotonic()
@@ -166,6 +191,8 @@ class SpeechEngine:
                     audio = np.concatenate(active_chunks)
                     active_chunks.clear()
                     silence_started = None
+                    speech_started_at = None
+                    activity_reported = False
                     if audio.size >= min_samples:
                         self._transcribe(audio)
 
@@ -173,15 +200,19 @@ class SpeechEngine:
         if self._model is None:
             return
         try:
+            lang = None if self.settings.speech_language in (None, "", "auto", "multilingual") else self.settings.speech_language
             segments, _ = self._model.transcribe(
                 audio,
-                language=self.settings.speech_language or None,
-                beam_size=1,
+                language=lang,
+                beam_size=3,
                 vad_filter=True,
+                initial_prompt="Friday AI assistant conversation in English and Hindi.",
                 condition_on_previous_text=False,
             )
             text = " ".join(segment.text.strip() for segment in segments).strip()
-            if text and self.on_utterance:
+            # Filter out common Whisper noise hallucinations
+            noise_hallucinations = {"ah.", "right it.", "take it.", "you", "thank you.", "subtitles", "subtitle by", "the end.", "subscribe"}
+            if text and text.lower() not in noise_hallucinations and len(text) >= 3 and self.on_utterance:
                 self.on_utterance(text)
         except Exception as exc:
             self._last_error = str(exc)

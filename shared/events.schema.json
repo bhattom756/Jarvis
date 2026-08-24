@@ -8,6 +8,7 @@
       "type": "string",
       "enum": [
         "assistant.state",
+        "conversation.message",
         "transcript.segment",
         "plan.updated",
         "task.updated",
@@ -17,6 +18,7 @@
         "confirmation.requested",
         "confirmation.resolved",
         "speech.output",
+        "speech.interrupt",
         "system.status"
       ]
     },
@@ -29,4 +31,3 @@
     }
   }
 }
-

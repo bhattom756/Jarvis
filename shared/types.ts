@@ -10,6 +10,7 @@ export type AssistantState =
 
 export type EventType =
   | "assistant.state"
+  | "conversation.message"
   | "transcript.segment"
   | "plan.updated"
   | "task.updated"
@@ -19,6 +20,7 @@ export type EventType =
   | "confirmation.requested"
   | "confirmation.resolved"
   | "speech.output"
+  | "speech.interrupt"
   | "system.status";
 
 export interface JarvisEvent<TPayload = Record<string, unknown>> {

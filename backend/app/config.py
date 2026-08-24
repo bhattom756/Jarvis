@@ -12,7 +12,7 @@ LOG_DIR = DATA_DIR / "logs"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", env_prefix="JARVIS_", extra="ignore")
 
-    app_name: str = "JARVIS"
+    app_name: str = "FRIDAY"
     backend_host: str = "127.0.0.1"
     backend_port: int = 8000
     log_level: str = "INFO"
@@ -22,8 +22,9 @@ class Settings(BaseSettings):
     qdrant_collection: str = "jarvis_memory"
     qdrant_api_key: str | None = None
     openai_api_key: str | None = None
-    openai_model: str = "gpt-4.1-mini"
+    openai_model: str = "gpt-5.6-terra"
     openai_embedding_model: str = "text-embedding-3-small"
+    mongodb_uri: str | None = "mongodb://localhost:27017/jarvis"
     elevenlabs_api_key: str | None = None
     elevenlabs_voice_id: str | None = None
     enable_microphone: bool = True
@@ -31,13 +32,18 @@ class Settings(BaseSettings):
     microphone_sample_rate: int = 16000
     microphone_channels: int = 1
     microphone_block_duration_ms: int = 100
-    speech_model: str = "base.en"
+    speech_model: str = "base"
     speech_device: Literal["auto", "cpu", "cuda"] = "auto"
     speech_compute_type: str = "int8"
-    speech_language: str = "en"
-    speech_vad_threshold: float = 0.012
-    speech_silence_duration_ms: int = 900
-    speech_min_utterance_ms: int = 350
+    speech_language: str = "auto"
+    speech_vad_threshold: float = 0.0055
+    speech_silence_duration_ms: int = 2500
+    speech_min_utterance_ms: int = 250
+    hotword_enabled: bool = True
+    hotword_phrase: str = "friday"
+    hotword_follow_up_timeout_ms: int = 300_000
+    speech_barge_in_enabled: bool = True
+    speech_barge_in_min_duration_ms: int = 180
     enable_monitoring: bool = True
     enable_browser_actions: bool = True
     enable_windows_actions: bool = True
