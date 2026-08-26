@@ -1,13 +1,19 @@
 {
-  "name": "jarvis-v1",
+  "name": "jarvis",
   "private": true,
   "version": "0.1.0",
-  "workspaces": [
-    "desktop"
-  ],
+  "packageManager": "pnpm@11.19.0",
   "scripts": {
-    "dev:desktop": "npm --workspace desktop run dev",
-    "build:desktop": "npm --workspace desktop run build"
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "dev:core": "pnpm --filter @jarvis/core dev",
+    "dev:desktop": "pnpm --filter @jarvis/desktop dev",
+    "dev:mobile": "pnpm --filter @jarvis/mobile start",
+    "build:desktop": "pnpm --filter @jarvis/desktop build"
+  },
+  "devDependencies": {
+    "turbo": "2.10.11",
+    "typescript": "^5.9.3"
   }
 }
-

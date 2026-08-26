@@ -2,6 +2,9 @@ node_modules/
 dist/
 build/
 .vite/
+.turbo/
+.expo/
+pnpm-debug.log*
 __pycache__/
 .pytest_cache/
 .mypy_cache/
@@ -15,5 +18,13 @@ __pycache__/
 data/runtime/
 desktop/dist-electron/
 desktop/dist-renderer/
+apps/desktop/dist-electron/
+apps/desktop/dist-renderer/
+apps/mobile/.expo/
+services/core/dist/
 backend/.coverage
 backend/htmlcov/
+services/legacy-python-backend/.coverage
+services/legacy-python-backend/htmlcov/
+*.tsbuildinfo
+

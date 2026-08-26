@@ -1,61 +1,37 @@
-# JARVIS V1
+# JARVIS Monorepo
 
-JARVIS is a Windows-first personal AI assistant built as a two-process system:
+JARVIS is a Windows-first personal AI assistant built as a modular `pnpm` monorepo workspace:
 
-- `desktop/`: Electron + React + TypeScript operator UI
-- `backend/`: FastAPI orchestration service
-- `shared/`: cross-process event contracts and schemas
-- `data/`: runtime persistence and logs
+- `apps/desktop`: Electron + React + TypeScript operator UI with floating HUD and tray controls
+- `apps/mobile`: Expo SDK 57 React Native mobile shell and device capability agent
+- `services/core`: TypeScript Fastify core orchestration and WebSocket service
+- `packages/*`: Shared contracts (`protocol`, `shared-types`, `api-client`, `errors`, `logger`, `security`)
+- `agents/*`: Device agent shells (`windows-agent`, `mobile-agent`)
 
-## Status
+## Monorepo Commands
 
-This repository provides a local integrated foundation:
-
-- shared websocket event protocol
-- backend orchestration, memory/logging, monitoring, planning, and action guardrails
-- desktop dashboard, floating HUD, tray integration, and operator controls
-- a root `.env` template at `.env.example`
-
-External integrations are optional and fall back safely when they are not configured:
-
-- Faster-Whisper speech integration
-- ElevenLabs TTS
-- OpenAI planning and response generation
-- Playwright browser automation
-- Qdrant semantic memory
-- IMAP unread-email monitoring (read-only)
-
-## Structure
-
-```text
-backend/
-desktop/
-shared/
-data/
-```
-
-## Run JARVIS
+From the workspace root, manage all applications and packages using `pnpm` and `Turborepo`:
 
 ```powershell
-python -m pip install -e backend[dev]
-python -m uvicorn app.main:app --reload --app-dir backend
+# Install dependencies across all workspace packages
+pnpm install
+
+# Run live development mode across desktop, core backend, and mobile
+pnpm run dev
+
+# Run TypeScript typechecks across all 11 workspace packages
+pnpm run typecheck
+
+# Run test suites across all packages
+pnpm test
+
+# Build production bundles
+pnpm build
 ```
 
-## Desktop setup
+## Configuration & Runtime State
 
-```powershell
-cd desktop
-npm install
-npm run dev
-```
+1. Copy `.env.example` to `.env` in the root workspace.
+2. Runtime logs are stored in `data/runtime/logs/jarvis.log`.
+3. SQLite state is stored in `data/runtime/jarvis.db`.
 
-Start the Electron desktop in a second PowerShell window. The desktop reconnects automatically to `http://127.0.0.1:8000` and restores its last dashboard state.
-
-```powershell
-cd desktop
-npm run dev
-```
-
-Copy `.env.example` to `.env` when starting from a clean checkout, then add only the provider credentials you want to enable. The assistant uses local fallbacks for unset provider credentials. Faster-Whisper downloads the selected speech model on its first microphone-enabled startup.
-
-Runtime logs are written to `data/runtime/logs/jarvis.log`; SQLite state is stored in `data/runtime/jarvis.db`.

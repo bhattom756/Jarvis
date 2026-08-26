@@ -1,0 +1,30 @@
+{
+  "name": "@jarvis/core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "pnpm run typecheck",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@fastify/websocket": "^11.2.0",
+    "@jarvis/errors": "workspace:*",
+    "@jarvis/logger": "workspace:*",
+    "@jarvis/protocol": "workspace:*",
+    "@jarvis/shared-types": "workspace:*",
+    "fastify": "^5.5.0",
+    "tsx": "^4.20.4",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.17.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
+
