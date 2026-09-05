@@ -5,8 +5,8 @@
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "concurrently -k \"vite --host localhost\" \"tsc -p tsconfig.electron.json --watch\" \"wait-on http://localhost:5173 && electron .\"",
-    "build": "tsc -p tsconfig.electron.json && vite build",
+    "dev": "npx esbuild electron/main.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist-electron/main.js --external:electron && npx esbuild electron/preload.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist-electron/preload.js --external:electron && concurrently -k \"vite --host localhost --strictPort\" \"npx esbuild electron/main.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist-electron/main.js --external:electron --watch\" \"npx esbuild electron/preload.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist-electron/preload.js --external:electron --watch\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "npx esbuild electron/main.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist-electron/main.js --external:electron && npx esbuild electron/preload.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist-electron/preload.js --external:electron && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "echo \"@jarvis/desktop has no runtime tests yet\""
   },
@@ -27,9 +27,11 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
     "concurrently": "^9.0.1",
+    "cross-env": "^7.0.3",
     "electron": "^31.2.1",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.10",
+    "tsx": "^4.20.4",
     "typescript": "^5.5.4",
     "vite": "^5.4.2",
     "wait-on": "^8.0.1"

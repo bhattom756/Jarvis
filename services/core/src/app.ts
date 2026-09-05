@@ -22,6 +22,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Fastify
   const app = Fastify({ logger: false });
   const state = options.state ?? createCoreState();
   const clients = new Set<{ send: (data: string) => void }>();
+  let initialGreetingSent = false;
 
   await app.register(cors, {
     origin: true,
@@ -73,8 +74,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Fastify
 
   app.post("/utterances", async (request) => {
     const utterance = userUtteranceSchema.parse(request.body);
-    const events = state.ingestUtterance(utterance);
-    events.forEach(broadcast);
+    void state.ingestUtterance(utterance, broadcast);
     return { accepted: true };
   });
 
@@ -142,26 +142,39 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Fastify
 
   app.get("/ws/desktop", { websocket: true }, (socket) => {
     clients.add(socket);
+
+    // Send system status
     socket.send(JSON.stringify({ type: "system.status", timestamp: new Date().toISOString(), payload: state.systemStatus }));
+
+    state.getInitialGreetingEvents().forEach((event) => {
+      socket.send(JSON.stringify(event));
+    });
 
     socket.on("message", (rawMessage: Buffer | string | { toString: () => string }) => {
       try {
         const parsed = desktopWebSocketMessageSchema.parse(JSON.parse(rawMessage.toString()));
+
         if (parsed.type === "utterance.submit") {
-          state.ingestUtterance(parsed.payload).forEach((event) => {
-            socket.send(JSON.stringify(event));
-          });
+          void state.ingestUtterance(parsed.payload, broadcast);
         }
+
         if (parsed.type === "speech.playback") {
-          socket.send(
-            JSON.stringify({
-              type: "speech.output",
+          if (parsed.payload.status === "completed" || parsed.payload.status === "cancelled") {
+            const idleEvent = {
+              type: "assistant.state",
               timestamp: new Date().toISOString(),
-              payload: { id: parsed.payload.id, text: "", voice: "jarvis", status: parsed.payload.status },
-            }),
-          );
+              payload: {
+                state: "LISTENING",
+                goal: "Active 8-second conversation window",
+                task: "Listening for follow-up prompt",
+                confidence: 1.0,
+              },
+            };
+            broadcast(idleEvent);
+          }
         }
       } catch (error) {
+        logger.error("❌ Invalid WebSocket message received", error);
         socket.send(
           JSON.stringify({
             type: "error.reported",
@@ -184,4 +197,3 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Fastify
 
   return app;
 }
-

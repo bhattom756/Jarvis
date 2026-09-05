@@ -1,6 +1,6 @@
 # JARVIS Monorepo
 
-JARVIS is a Windows-first personal AI assistant built as a modular `pnpm` monorepo workspace:
+JARVIS is a Windows-first personal AI assistant built as a modular monorepo workspace:
 
 - `apps/desktop`: Electron + React + TypeScript operator UI with floating HUD and tray controls
 - `apps/mobile`: Expo SDK 57 React Native mobile shell and device capability agent
@@ -8,25 +8,44 @@ JARVIS is a Windows-first personal AI assistant built as a modular `pnpm` monore
 - `packages/*`: Shared contracts (`protocol`, `shared-types`, `api-client`, `errors`, `logger`, `security`)
 - `agents/*`: Device agent shells (`windows-agent`, `mobile-agent`)
 
-## Monorepo Commands
+## Development & Running Services
 
-From the workspace root, manage all applications and packages using `pnpm` and `Turborepo`:
+Run each service directly from its respective directory:
+
+### 1. Core Backend (`services/core`)
+Open terminal in `services/core`:
+```powershell
+cd services/core
+npm run dev
+```
+
+### 2. Desktop App (`apps/desktop`)
+Open terminal in `apps/desktop`:
+```powershell
+cd apps/desktop
+npm run dev
+```
+
+### 3. Mobile App (`apps/mobile`)
+Open terminal in `apps/mobile`:
+```powershell
+cd apps/mobile
+npm run start
+```
+
+## Workspace Commands (Root)
+
+From the workspace root:
 
 ```powershell
 # Install dependencies across all workspace packages
-pnpm install
+npm install
 
-# Run live development mode across desktop, core backend, and mobile
-pnpm run dev
+# Run TypeScript typechecks across all packages
+npm run typecheck
 
-# Run TypeScript typechecks across all 11 workspace packages
-pnpm run typecheck
-
-# Run test suites across all packages
-pnpm test
-
-# Build production bundles
-pnpm build
+# Run test suites
+npm test
 ```
 
 ## Configuration & Runtime State

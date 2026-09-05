@@ -2,15 +2,21 @@
   "name": "jarvis",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@11.19.0",
+  "packageManager": "npm@10.8.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "agents/*",
+    "services/*"
+  ],
   "scripts": {
-    "build": "turbo run build",
-    "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
-    "dev:core": "pnpm --filter @jarvis/core dev",
-    "dev:desktop": "pnpm --filter @jarvis/desktop dev",
-    "dev:mobile": "pnpm --filter @jarvis/mobile start",
-    "build:desktop": "pnpm --filter @jarvis/desktop build"
+    "build": "npx turbo run build",
+    "typecheck": "npx turbo run typecheck",
+    "test": "npx turbo run test",
+    "dev:core": "npm --prefix services/core run dev",
+    "dev:desktop": "npm --prefix apps/desktop run dev",
+    "dev:mobile": "npm --prefix apps/mobile run start",
+    "build:desktop": "npm --prefix apps/desktop run build"
   },
   "devDependencies": {
     "turbo": "2.10.11",

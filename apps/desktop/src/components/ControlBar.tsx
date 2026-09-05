@@ -46,7 +46,7 @@ export function ControlBar() {
         >
           {monitoringPaused ? "Resume Monitoring" : "Pause Monitoring"}
         </button>
-        <button className="rounded-full bg-white/10 px-4 py-2 text-white" onClick={() => window.jarvisDesktop.toggleHud()}>
+        <button className="rounded-full bg-white/10 px-4 py-2 text-white" onClick={() => void window.jarvisDesktop?.toggleHud()}>
           Toggle HUD
         </button>
       </div>

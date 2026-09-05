@@ -11,7 +11,16 @@ export function HudView() {
       <div className="hud-panel drag-region">
         <div className="no-drag flex items-center justify-between">
           <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-cyan-100/60">JARVIS</div>
-          <div className="hud-state">{state}</div>
+          <div className="flex items-center gap-2">
+            <div className="hud-state">{state}</div>
+            <button
+              onClick={() => window.jarvisDesktop?.closeWindow()}
+              className="flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-500/80 hover:text-white"
+              title="Close HUD"
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <div className="mt-2 flex items-center gap-3">
           <JarvisHologram state={state} size={130} interactive={false} />

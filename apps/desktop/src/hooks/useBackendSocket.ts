@@ -6,7 +6,18 @@ import type { ConversationMessage, ConversationSession, EventEnvelope } from "..
 const BACKEND_HTTP_URL = jarvisBackendUrls.httpUrl;
 const BACKEND_WS_URL = jarvisBackendUrls.desktopWsUrl;
 
-export function useBackendSocket(): void {
+let activeSocket: WebSocket | undefined;
+
+export function sendUtteranceOverSocket(text: string, source = "desktop"): boolean {
+  if (activeSocket?.readyState === WebSocket.OPEN) {
+    activeSocket.send(JSON.stringify({ type: "utterance.submit", payload: { text, source } }));
+    return true;
+  }
+  return false;
+}
+
+export function useBackendSocket(options: { playSpeech?: boolean } = {}): void {
+  const playSpeech = options.playSpeech ?? true;
   const setConnected = useJarvisStore((state) => state.setConnected);
   const applyEvent = useJarvisStore((state) => state.applyEvent);
   const setConversationBootstrap = useJarvisStore((state) => state.setConversationBootstrap);
@@ -54,6 +65,57 @@ export function useBackendSocket(): void {
       sendPlayback(id, status);
     };
 
+    const fallbackSpeechSynthesis = (id: string, text: string) => {
+      if (!("speechSynthesis" in window)) {
+        finishSpeech(id, "failed");
+        return;
+      }
+
+      try {
+        window.speechSynthesis.resume();
+      } catch {
+        // ignore
+      }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 0.95;
+      utterance.volume = 1.0;
+
+      const setVoiceAndPlay = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const femaleVoice =
+          voices.find((v) =>
+            /zira|female|samantha|victoria|karen|veena|fiona|hazel|susan|eva|google UK english female/i.test(v.name),
+          ) ||
+          voices.find((v) => v.lang.startsWith("en") && !/david|mark|george|male/i.test(v.name)) ||
+          voices[0];
+
+        if (femaleVoice) {
+          utterance.voice = femaleVoice;
+        }
+        utterance.onstart = () => sendPlayback(id, "playing");
+        utterance.onend = () => finishSpeech(id, "completed");
+        utterance.onerror = () => finishSpeech(id, "failed");
+        try {
+          window.speechSynthesis.resume();
+          window.speechSynthesis.speak(utterance);
+        } catch {
+          finishSpeech(id, "failed");
+        }
+      };
+
+      if (window.speechSynthesis.getVoices().length > 0) {
+        setVoiceAndPlay();
+      } else {
+        window.speechSynthesis.onvoiceschanged = () => {
+          window.speechSynthesis.onvoiceschanged = null;
+          setVoiceAndPlay();
+        };
+        window.setTimeout(setVoiceAndPlay, 100);
+      }
+    };
+
     const speak = (id: string, text: string, audioUrl: string | null) => {
       if (!id || !text.trim()) {
         if (id) {
@@ -63,6 +125,7 @@ export function useBackendSocket(): void {
       }
       stopSpeaking();
       activeSpeechId = id;
+
       if (audioUrl) {
         const audio = new Audio(`${BACKEND_HTTP_URL}${audioUrl}`);
         activeAudio = audio;
@@ -72,23 +135,33 @@ export function useBackendSocket(): void {
         void audio.play().catch(() => finishSpeech(id, "failed"));
         return;
       }
-      if (!("speechSynthesis" in window)) {
-        finishSpeech(id, "failed");
-        return;
+
+      if (text.length < 250) {
+        try {
+          const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(text)}`;
+          const audio = new Audio(ttsUrl);
+          activeAudio = audio;
+          audio.onplay = () => sendPlayback(id, "playing");
+          audio.onended = () => finishSpeech(id, "completed");
+          audio.onerror = () => {
+            fallbackSpeechSynthesis(id, text);
+          };
+          void audio.play().catch(() => {
+            fallbackSpeechSynthesis(id, text);
+          });
+          return;
+        } catch {
+          // Fall through
+        }
       }
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.96;
-      utterance.pitch = 0.9;
-      utterance.volume = 1;
-      utterance.onstart = () => sendPlayback(id, "playing");
-      utterance.onend = () => {
-        finishSpeech(id, "completed");
-      };
-      utterance.onerror = () => {
-        finishSpeech(id, "failed");
-      };
-      window.speechSynthesis.speak(utterance);
+
+      fallbackSpeechSynthesis(id, text);
     };
+
+    const onBargeIn = () => stopSpeaking();
+    if (playSpeech) {
+      window.addEventListener("jarvis:barge-in", onBargeIn);
+    }
 
 
 
@@ -105,11 +178,17 @@ export function useBackendSocket(): void {
 
     const connect = () => {
       socket = new WebSocket(BACKEND_WS_URL);
+      if (playSpeech) {
+        activeSocket = socket;
+      }
       socket.addEventListener("open", () => {
         attempts = 0;
         setConnected(true);
       });
       socket.addEventListener("close", () => {
+        if (activeSocket === socket) {
+          activeSocket = undefined;
+        }
         setConnected(false);
         if (!closed) {
           const delay = Math.min(15_000, 500 * 2 ** attempts++);
@@ -120,14 +199,14 @@ export function useBackendSocket(): void {
         try {
           const event = JSON.parse(message.data) as EventEnvelope;
           applyEvent(event);
-          if (event.type === "speech.output") {
+          if (playSpeech && event.type === "speech.output") {
             speak(
               String(event.payload.id ?? ""),
               String(event.payload.text ?? ""),
               typeof event.payload.audio_url === "string" ? event.payload.audio_url : null,
             );
           }
-          if (event.type === "speech.interrupt") {
+          if (playSpeech && event.type === "speech.interrupt") {
             stopSpeaking(String(event.payload.id ?? ""));
           }
         } catch {
@@ -139,13 +218,19 @@ export function useBackendSocket(): void {
     connect();
     return () => {
       closed = true;
+      if (activeSocket === socket) {
+        activeSocket = undefined;
+      }
       if (reconnectTimer) {
         window.clearTimeout(reconnectTimer);
       }
       stopSpeaking();
+      if (playSpeech) {
+        window.removeEventListener("jarvis:barge-in", onBargeIn);
+      }
       socket?.close();
     };
-  }, [applyEvent, setConnected, setConversationBootstrap, setConversationMessages]);
+  }, [applyEvent, playSpeech, setConnected, setConversationBootstrap, setConversationMessages]);
 
   useEffect(() => {
     if (!activeConversationId) {

@@ -113,8 +113,8 @@ export const useJarvisStore = create<JarvisStore>()(
         set((state) => ({ conversationMenuOpen: !state.conversationMenuOpen })),
       setActiveConversation: (conversationId) => set({ activeConversationId: conversationId }),
       setConversationBootstrap: (activeConversationId, sessions) =>
-        set((state) => ({
-          activeConversationId: activeConversationId ?? state.activeConversationId ?? sessions[0]?.id ?? null,
+        set(() => ({
+          activeConversationId: activeConversationId ?? sessions[0]?.id ?? null,
           conversationSessions: sessions,
         })),
       setConversationMessages: (conversationId, messages) =>
@@ -150,7 +150,7 @@ export const useJarvisStore = create<JarvisStore>()(
 
               return {
                 ...state,
-                activeConversationId: state.activeConversationId ?? message.conversation_id,
+                activeConversationId: message.conversation_id,
                 conversationMessages: {
                   ...state.conversationMessages,
                   [message.conversation_id]: updatedMessages,
@@ -196,7 +196,6 @@ export const useJarvisStore = create<JarvisStore>()(
     {
       name: "jarvis-conversation-state",
       partialize: (state) => ({
-        activeConversationId: state.activeConversationId,
         conversationMenuOpen: state.conversationMenuOpen,
       }),
     },
